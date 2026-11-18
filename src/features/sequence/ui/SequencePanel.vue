@@ -54,5 +54,11 @@ defineEmits<{ seek: [n: number]; play: []; capture: [] }>();
         ><i v-if="i < doc.steps.length - 1"></i>
       </button>
     </div>
+    <div v-if="doc.retired.length" class="retired-track">
+      <span class="eyebrow">已收回</span>
+      <div v-for="r in doc.retired" :key="r.id" class="retired-chip" :title="r.reason">
+        <b>{{ r.title }}</b><small>{{ r.reason }}</small>
+      </div>
+    </div>
   </section>
 </template>

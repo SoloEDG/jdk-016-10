@@ -1,9 +1,11 @@
 <script setup lang="ts">
+import { computed } from "vue";
 import type { Document } from "../../../shared/types";
-import { papers, swatches } from "../lib/presets";
+import { presets, swatches } from "../lib/presets";
 import { setMaterial } from "../model/paper";
 defineProps<{ doc: Document }>();
 defineEmits<{ paper: [id: string] }>();
+const templates = computed(() => presets.map((p) => p.template));
 </script>
 <template>
   <section class="panel">
@@ -12,7 +14,7 @@ defineEmits<{ paper: [id: string] }>();
     </div>
     <label class="field-label">折纸模型</label
     ><button
-      v-for="(p, i) in papers"
+      v-for="(p, i) in templates"
       :key="p.id"
       class="model-card"
       :class="{ active: doc.paper.id === p.id }"
@@ -43,7 +45,8 @@ defineEmits<{ paper: [id: string] }>();
       <option value="plain">纯色纸</option>
     </select>
     <div class="paper-info">
-      <span>纸张尺寸</span><b>{{ doc.paper.size }} × {{ doc.paper.size }} mm</b>
+      <span>纸张尺寸</span
+      ><b>{{ doc.paper.width.toFixed(0) }} × {{ doc.paper.height.toFixed(0) }} mm</b>
     </div>
   </section>
 </template>

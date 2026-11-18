@@ -1,3 +1,4 @@
 export { default as PaperPanel } from "./ui/PaperPanel.vue";
-export { papers } from "./lib/presets";
-export { replacePaper } from "./model/paper";
+export { presets, presetById, swatches } from "./lib/presets";
+export type { Preset } from "./lib/presets";
+export { setMaterial } from "./model/paper";

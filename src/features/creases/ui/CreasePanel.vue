@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { Document } from "../../../shared/types";
 import { creaseProgress } from "../lib/availability";
-defineProps<{ doc: Document }>();
+defineProps<{ doc: Document; displayAngles?: Record<string, number> }>();
 defineEmits<{ select: [id: string] }>();
 </script>
 <template>
@@ -21,8 +21,8 @@ defineEmits<{ select: [id: string] }>();
       ><span class="crease-name"
         ><b>{{ c.name }}</b
         ><small
-          >{{ (doc.angles[c.id] ?? 0).toFixed(0) }}° ·
-          {{ (doc.directions[c.id] ?? 1) > 0 ? "谷折" : "山折" }}</small
+          >{{ (displayAngles?.[c.id] ?? doc.finalAngles[c.id] ?? 0).toFixed(0) }}° ·
+          {{ (displayAngles?.[c.id] ?? doc.finalAngles[c.id] ?? 0) < 0 ? "山折" : "谷折" }}</small
         ><i :style="{ width: creaseProgress(doc, c.id) + '%' }"></i></span
       ><span>↗</span>
     </button>

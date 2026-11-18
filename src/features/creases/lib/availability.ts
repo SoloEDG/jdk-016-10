@@ -5,5 +5,8 @@ export function selectedCrease(doc: Document) {
   );
 }
 export function creaseProgress(doc: Document, id: string) {
-  return Math.round((Math.abs(doc.angles[id] ?? 0) / 180) * 100);
+  const final = Math.abs(doc.finalAngles[id] ?? 0);
+  return Math.round(
+    Math.min(100, (Math.abs(doc.angles[id] ?? 0) / (final || 180)) * 100),
+  );
 }

@@ -15,7 +15,7 @@ export function usePlayer(doc: Document) {
     if (!last) {
       last = now;
       start = { ...doc.angles };
-      target = (doc.step + 1) % doc.steps.length;
+      target = Math.min(doc.step + 1, doc.steps.length - 1);
       elapsed = 0;
     }
     elapsed += (now - last) * doc.speed;
@@ -28,15 +28,15 @@ export function usePlayer(doc: Document) {
     );
     if (elapsed >= step.duration) {
       doc.step = target;
-      const c = doc.paper.creases[target - 1];
+      const c = doc.paper.creases.find((c) => c.id === step.crease);
       if (c) doc.selected = c.id;
-      if (target === doc.steps.length - 1) {
+      if (target >= doc.steps.length - 1) {
         doc.playing = false;
         last = 0;
         return;
       }
       start = { ...doc.angles };
-      target++;
+      target = Math.min(target + 1, doc.steps.length - 1);
       elapsed = 0;
     }
     frame = requestAnimationFrame(tick);

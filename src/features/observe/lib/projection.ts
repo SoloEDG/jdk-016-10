@@ -10,19 +10,22 @@ export function cameraPoint(p: Vec3, view: View): Vec3 {
     p[1] * Math.sin(b) + z * Math.cos(b),
   ];
 }
-export function project(p: Vec3, view: View) {
+/** 纸张以毫米建模，投影到画布时归一化取景，缩放参数才是纯粹的观察缩放。 */
+export const sceneScale = (width: number, height: number) =>
+  290 / Math.max(width, height, 1);
+export function project(p: Vec3, view: View, scale = 1) {
   const c = cameraPoint(p, view);
   return {
-    x: 400 + c[0] * 145 * view.zoom,
-    y: 280 - c[1] * 145 * view.zoom,
+    x: 400 + c[0] * scale * view.zoom,
+    y: 280 - c[1] * scale * view.zoom,
     z: c[2],
   };
 }
-export function polygon(points: Vec3[], view: View) {
+export function polygon(points: Vec3[], view: View, scale = 1) {
   return points
     .map((p) => {
-      const v = project(p, view);
-      return `${v.x},${v.y}`;
+      const v = project(p, view, scale);
+      return `${v.x.toFixed(2)},${v.y.toFixed(2)}`;
     })
     .join(" ");
 }

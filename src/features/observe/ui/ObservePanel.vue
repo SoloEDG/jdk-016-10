@@ -1,17 +1,24 @@
 <script setup lang="ts">
-import type { Document } from "../../../shared/types";
-defineProps<{ doc: Document }>();
+import type { Document, SchemeReport } from "../../../shared/types";
+defineProps<{ doc: Document; report?: SchemeReport }>();
 </script>
 <template>
   <section class="panel observe-panel">
     <div class="section-heading">
-      <span>观察提示</span><small>INSPECT</small>
+      <span>标记与观察</span><small>INSPECT</small>
     </div>
-    <div class="inspect-icon">⌘</div>
-    <p>换个角度，发现纸的可能。</p>
-    <span class="muted small"
-      >拖动画面自由旋转，检查相邻纸面的连接与折叠关系。</span
-    >
+    <p>纸上标记点始终贴在原来的材料位置，用来核对重解后是否仍是同一片纸。</p>
+    <div class="mark-list">
+      <div
+        v-for="m in doc.report.marks"
+        :key="m.id"
+        class="mark-row"
+        :class="m.status"
+      >
+        <span>{{ m.label }}</span>
+        <small>{{ m.note }}</small>
+      </div>
+    </div>
     <div class="legend">
       <span><i :style="{ background: doc.front }"></i>正面</span
       ><span><i :style="{ background: doc.back }"></i>背面</span

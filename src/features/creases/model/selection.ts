@@ -5,8 +5,3 @@ export function selectCrease(doc: Document, id: string) {
     doc.playing = false;
   }
 }
-export function toggleDirection(doc: Document) {
-  doc.directions[doc.selected] = (doc.directions[doc.selected] ?? 1) * -1;
-  doc.angles[doc.selected] = -(doc.angles[doc.selected] ?? 0);
-  doc.playing = false;
-}

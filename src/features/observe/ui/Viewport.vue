@@ -1,36 +1,48 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
-import type { Document, PoseFace } from "../../../shared/types";
-import { project, polygon, cameraPoint } from "../lib/projection";
+import type { Document, MarkPlacement, PoseFace } from "../../../shared/types";
+import { project, polygon } from "../lib/projection";
 import { orbit, zoom, setView } from "../model/camera";
 import { downloadView } from "../lib/export";
 const props = defineProps<{
   doc: Document;
   pose: PoseFace[];
-  hinges: {
-    id: string;
-    a: [number, number, number];
-    b: [number, number, number];
-  }[];
+  hinges: { id: string; a: [number, number, number]; b: [number, number, number] }[];
+  scale?: number;
+  /** 参数预览中的替代纸面：与已提交姿态叠加显示。 */
+  ghostPose?: PoseFace[];
+  ghostHinges?: { id: string; a: [number, number, number]; b: [number, number, number] }[];
+  ghostScale?: number;
+  markers?: MarkPlacement[];
+  ghostMarkers?: MarkPlacement[];
+  previewing?: boolean;
+  dims?: string;
 }>();
 defineEmits<{ select: [id: string] }>();
 const svg = ref<SVGSVGElement>();
 let drag = false,
   lastX = 0,
   lastY = 0;
-const faces = computed(() =>
-  props.pose
+const s = computed(() => props.scale ?? 1);
+function decorate(faces: PoseFace[], scale: number) {
+  return faces
     .map((f) => ({
       ...f,
+      scale,
       depth:
-        f.points.reduce((s, p) => s + project(p, props.doc.view).z, 0) /
+        f.points.reduce((sum, p) => sum + project(p, props.doc.view, scale).z, 0) /
         f.points.length,
-      back: cameraPoint(f.normal, props.doc.view)[2] > 0,
+      back: project(f.normal, props.doc.view, scale).z > 0,
     }))
-    .sort((a, b) => a.depth - b.depth),
+    .sort((a, b) => a.depth - b.depth);
+}
+const faces = computed(() => decorate(props.pose, s.value));
+const ghosts = computed(() =>
+  props.ghostPose ? decorate(props.ghostPose, props.ghostScale ?? s.value) : [],
 );
+const px = (p: [number, number, number], scale = s.value) => project(p, props.doc.view, scale);
 function down(e: PointerEvent) {
-  if ((e.target as Element).closest(".hinge")) return;
+  if ((e.target as Element).closest(".hinge, .marker")) return;
   drag = true;
   lastX = e.clientX;
   lastY = e.clientY;
@@ -51,7 +63,10 @@ function move(e: PointerEvent) {
         ><button @click="setView(doc, 'top')">俯视</button
         ><button @click="setView(doc, 'front')">正视</button>
       </div>
-      <span class="live"><i></i> 实时预览</span>
+      <span class="live" :class="{ preview: previewing }"
+        ><i></i> {{ previewing ? "参数预览中" : "实时预览" }}
+        <b v-if="dims" class="dims">{{ dims }}</b></span
+      >
     </div>
     <svg
       ref="svg"
@@ -68,12 +83,7 @@ function move(e: PointerEvent) {
         <pattern id="grid" width="35" height="35" patternUnits="userSpaceOnUse">
           <circle cx="1" cy="1" r="0.8" fill="#d4d9d0" />
         </pattern>
-        <pattern
-          id="fiber"
-          width="13"
-          height="17"
-          patternUnits="userSpaceOnUse"
-        >
+        <pattern id="fiber" width="13" height="17" patternUnits="userSpaceOnUse">
           <path
             d="M1 2l3 1M8 11l2 -2M3 14l1 -2"
             stroke="#fff"
@@ -99,7 +109,7 @@ function move(e: PointerEvent) {
       />
       <g v-for="f in faces" :key="f.id" :data-face="f.id">
         <polygon
-          :points="polygon(f.points, doc.view)"
+          :points="polygon(f.points, doc.view, f.scale)"
           :fill="f.back ? doc.back : doc.front"
           stroke="#785945"
           stroke-opacity=".35"
@@ -107,14 +117,38 @@ function move(e: PointerEvent) {
           stroke-linejoin="round"
         />
         <polygon
-          :points="polygon(f.points, doc.view)"
+          :points="polygon(f.points, doc.view, f.scale)"
           fill="#314638"
           :opacity="Math.max(0, 0.1 + f.normal[1] * 0.08)"
         />
         <polygon
           v-if="doc.texture !== 'plain'"
-          :points="polygon(f.points, doc.view)"
+          :points="polygon(f.points, doc.view, f.scale)"
           :fill="'url(#' + doc.texture + ')'"
+        />
+      </g>
+      <g v-for="f in ghosts" :key="'g-' + f.id" class="ghost-face" :data-face="f.id">
+        <polygon
+          :points="polygon(f.points, doc.view, f.scale)"
+          fill="#fffaf1"
+          fill-opacity=".28"
+          stroke="#b8734a"
+          stroke-width="1.3"
+          stroke-dasharray="6 4"
+        />
+      </g>
+      <g v-if="previewing && ghostHinges" class="ghost-hinges">
+        <line
+          v-for="h in ghostHinges"
+          :key="'gh-' + h.id"
+          :x1="px(h.a, ghostScale ?? s).x"
+          :y1="px(h.a, ghostScale ?? s).y"
+          :x2="px(h.b, ghostScale ?? s).x"
+          :y2="px(h.b, ghostScale ?? s).y"
+          stroke="#c9906b"
+          stroke-width="1.2"
+          stroke-dasharray="3 4"
+          opacity=".7"
         />
       </g>
       <g v-if="doc.view.wire">
@@ -125,31 +159,31 @@ function move(e: PointerEvent) {
           @click.stop="$emit('select', h.id)"
         >
           <line
-            :x1="project(h.a, doc.view).x"
-            :y1="project(h.a, doc.view).y"
-            :x2="project(h.b, doc.view).x"
-            :y2="project(h.b, doc.view).y"
+            :x1="px(h.a).x"
+            :y1="px(h.a).y"
+            :x2="px(h.b).x"
+            :y2="px(h.b).y"
             stroke="transparent"
             stroke-width="18"
           />
           <line
-            :x1="project(h.a, doc.view).x"
-            :y1="project(h.a, doc.view).y"
-            :x2="project(h.b, doc.view).x"
-            :y2="project(h.b, doc.view).y"
+            :x1="px(h.a).x"
+            :y1="px(h.a).y"
+            :x2="px(h.b).x"
+            :y2="px(h.b).y"
             :stroke="h.id === doc.selected ? '#fff8d9' : '#746f57'"
             :stroke-width="h.id === doc.selected ? 2.5 : 1.2"
             stroke-dasharray="5 4"
           />
           <circle
-            :cx="(project(h.a, doc.view).x + project(h.b, doc.view).x) / 2"
-            :cy="(project(h.a, doc.view).y + project(h.b, doc.view).y) / 2"
+            :cx="(px(h.a).x + px(h.b).x) / 2"
+            :cy="(px(h.a).y + px(h.b).y) / 2"
             r="11"
             :fill="h.id === doc.selected ? '#384d3f' : '#f7f6ee'"
           />
           <text
-            :x="(project(h.a, doc.view).x + project(h.b, doc.view).x) / 2"
-            :y="(project(h.a, doc.view).y + project(h.b, doc.view).y) / 2 + 3.5"
+            :x="(px(h.a).x + px(h.b).x) / 2"
+            :y="(px(h.a).y + px(h.b).y) / 2 + 3.5"
             text-anchor="middle"
             font-size="10"
             :fill="h.id === doc.selected ? 'white' : '#555'"
@@ -157,6 +191,29 @@ function move(e: PointerEvent) {
             {{ i + 1 }}
           </text>
         </g>
+      </g>
+      <g v-if="markers" class="markers">
+        <g
+          v-for="m in markers"
+          :key="m.id"
+          class="marker"
+          :class="m.status"
+          :transform="`translate(${px(m.position).x},${px(m.position).y})`"
+        >
+          <circle r="8" />
+          <text text-anchor="middle" y="3.2">{{ m.label }}</text>
+        </g>
+      </g>
+      <g v-if="previewing && ghostMarkers" class="markers ghost">
+        <circle
+          v-for="m in ghostMarkers"
+          :key="'gm-' + m.id"
+          class="ghost-dot"
+          :class="m.status"
+          :cx="px(m.position, ghostScale ?? s).x"
+          :cy="px(m.position, ghostScale ?? s).y"
+          r="3.4"
+        />
       </g>
       <g transform="translate(58,475)" stroke-width="1.5">
         <path d="M0 0l28 12" stroke="#be806c" />
